@@ -1,7 +1,11 @@
+// type User with properties and callable/call signature
+type User = {
+  [key: string]: any,
+  (): any, // callable / call Signature
+}
 
-
-export interface PluginOption {
-  user:  Object | Function,
+export interface PluginOption<T = User> {
+  user:  T | Function,
   rules: Function | null
   router: any,
   onDeniedRoute?: string,
