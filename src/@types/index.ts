@@ -5,9 +5,9 @@ type User = {
 }
 
 export interface PluginOption<T = User> {
-  user:  T | Function,
+  user:  T,
   rules: Function | null
-  router: any,
+  router?: any,
   onDeniedRoute?: string,
   directiveName?: string,
   helperName?: string
