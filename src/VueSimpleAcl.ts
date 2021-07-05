@@ -286,14 +286,14 @@ export const installPlugin = (app: any, options?: PluginOption) => {
   const pluginOptions: PluginOption = { ...defaultPluginOptions, ...options };
 
   // Sanitize directive name should the developer specified a custom name
-  if (pluginOptions.directiveName && typeof pluginOptions.directiveName === "string") {
+  if (pluginOptions.directiveName) {
     if (pluginOptions.directiveName.startsWith('v-')) {
       pluginOptions.directiveName = pluginOptions.directiveName.substr(2, pluginOptions.directiveName.length);
     }
   }
 
   // Sanitize helper name should the developer specified a custom name
-  if (pluginOptions.helperName && typeof pluginOptions.helperName === "string") {
+  if (pluginOptions.helperName) {
     if (pluginOptions.helperName.charAt(0) !== '$') {
       pluginOptions.helperName = '$' + pluginOptions.helperName;
     }
@@ -331,7 +331,7 @@ export const installPlugin = (app: any, options?: PluginOption) => {
         el.style.display = 'none';
       }
     } else {
-        // v-can:edit-post.disabled="post"
+      // v-can:edit-post.disabled="post"
       if (notModifier) {
         // reverse the invalid effect
       } else {
@@ -444,121 +444,9 @@ export const installPlugin = (app: any, options?: PluginOption) => {
         app.prototype.$acl = {};
       }
       app.prototype.$acl.user = computed(() => state.registeredUser).value;
-      app.prototype.$acl.getUser = () => state.registeredUser;;
+      app.prototype.$acl.getUser = () => state.registeredUser;
     }
   }
-
-
-
-  // VUE ROUTER MIDDLEWARE EVALUATIONS
-  if (pluginOptions.router) {
-
-    const routerRedirectHandler = (to: any, from: any, next: any, granted: any) => {
-      if (granted) {
-        next();
-      } else {
-        let onDeniedRoute = pluginOptions.onDeniedRoute;
-        if (to.meta && to.meta.onDeniedRoute) {
-          onDeniedRoute = to.meta.onDeniedRoute;
-        }
-        if (typeof onDeniedRoute === 'object') {
-          next(onDeniedRoute)
-        } else {
-          if (onDeniedRoute === '$from') {
-            next(from)
-          } else {
-            next({ path: `${onDeniedRoute}`, replace: true })
-          }
-        }
-      }
-    }
-
-    const evaluateRouterAcl = (to: any, from: any, next: any) => {
-      if (to.meta && (to.meta.can || to.meta.permission || to.meta.role || to.meta.roleOrPermission)) {
-        const abilities = (to.meta.can || to.meta.permission || to.meta.role || to.meta.roleOrPermission);
-        let granted = false;
-        if (typeof abilities === 'function') {
-          const funcArgs = getFunctionArgsNames(abilities);
-          if (Array.isArray(funcArgs) && funcArgs.length === 4) {
-            granted = abilities(to, from, canHelperHandler, state.registeredUser);
-          } else {
-            granted = abilities(to, from, canHelperHandler);
-          }
-        } else {
-          granted = canHelperHandler(abilities)
-        }
-        routerRedirectHandler(to, from, next, granted);
-
-      } else if (to.meta && (to.meta.canAll || to.meta.allCan || to.meta.allPermission || to.meta.allRole || to.meta.allRoleOrPermission)) {
-        const abilities = (to.meta.canAll || to.meta.allCan || to.meta.allPermission || to.meta.allRole || to.meta.allRoleOrPermission);
-        let granted = false;
-        if (typeof abilities === 'function') {
-          const funcArgs = getFunctionArgsNames(abilities);
-          if (Array.isArray(funcArgs) && funcArgs.length === 4) {
-            granted = abilities(to, from, canHelperHandler, state.registeredUser);
-          } else {
-            granted = abilities(to, from, canHelperHandler);
-          }
-        } else {
-          granted = canHelperHandler(abilities)
-        }
-        routerRedirectHandler(to, from, next, granted);
-
-      } else if (to.meta && (to.meta.cannot || to.meta.canNot || to.meta.notCan || to.meta.notPermission || to.meta.notRole || to.meta.notRoleOrPermission)) {
-        const abilities = (to.meta.cannot || to.meta.canNot || to.meta.notCan || to.meta.notPermission || to.meta.notRole || to.meta.notRoleOrPermission);
-        let granted = false;
-        if (typeof abilities === 'function') {
-          const funcArgs = getFunctionArgsNames(abilities);
-          if (Array.isArray(funcArgs) && funcArgs.length === 4) {
-            granted = abilities(to, from, notCanHelperHandler, state.registeredUser);
-          } else {
-            granted = abilities(to, from, notCanHelperHandler);
-          }
-        } else {
-          granted = notCanHelperHandler(abilities)
-        }
-        routerRedirectHandler(to, from, next, granted);
-
-      } else if (to.meta && (to.meta.canAny || to.meta.anyCan || to.meta.anyPermission || to.meta.anyRole|| to.meta.anyRoleOrPermission)) {
-        const abilities = (to.meta.canAny || to.meta.anyCan || to.meta.anyPermission || to.meta.anyRole|| to.meta.anyRoleOrPermission);
-        let granted = false;
-        if (typeof abilities === 'function') {
-          const funcArgs = getFunctionArgsNames(abilities);
-          if (Array.isArray(funcArgs) && funcArgs.length === 4) {
-            granted = abilities(to, from, anyCanHelperHandler, state.registeredUser);
-          } else {
-            granted = abilities(to, from, anyCanHelperHandler);
-          }
-        } else {
-          granted = anyCanHelperHandler(abilities);
-        }
-        routerRedirectHandler(to, from, next, granted);
-      } else {
-        // Proceed to request route if no can|canNot|CanAny meta is set
-        next();
-      }
-    }
-
-    // vue-router hook
-    pluginOptions.router.beforeEach((to: any, from: any, next: any) => {
-      if (hasAsyncUser) {
-        pluginOptions.user().then((user: PluginOption['user'])=> {
-          pluginOptions.user = user;
-          registerPluginOptions(pluginOptions);
-          evaluateRouterAcl(to, from, next);
-        }).catch((err: any) => {
-          // Abort router
-          console.warn(`:::VueSimpleACL::: Error while processing/retrieving 'user' data with the Asynchronous function.`)
-        });
-      } else {
-        evaluateRouterAcl(to, from, next);
-      }
-    });
-  } else { // No router
-    if (hasAsyncUser) {
-      console.error(`:::VueSimpleACL::: Instance of vue-router is required to define 'user' retrieved from a promise or Asynchronous function.`)
-    }
-  } // ./ Vue Router evaluation
 }
 
 
@@ -567,19 +455,20 @@ export const installPlugin = (app: any, options?: PluginOption) => {
  * @param userDefinedOptions
  * @return object
  */
-export const createAcl = (userDefinedOptions: PluginOption): Plugin => {
+export const createAcl = <T extends unknown>(userDefinedOptions: PluginOption<T>): Plugin => {
   return {
     install: (app: any, options: any = {}) => {
-        installPlugin(app, { ...options, ...userDefinedOptions });
+      installPlugin(app, { ...options, ...userDefinedOptions });
     }
   }
 }
 
+
 /**
-* Define ACL Rules
-* @param aclRulesCallback
-* @return void
-*/
+ * Define ACL Rules
+ * @param aclRulesCallback
+ * @return void
+ */
 export const defineAclRules = (aclRulesCallback: Function): void => {
   if (typeof aclRulesCallback === "function") {
     aclRulesCallback(setRule);
@@ -587,9 +476,9 @@ export const defineAclRules = (aclRulesCallback: Function): void => {
 };
 
 /**
-* Returns the acl helper instance. Equivalent to using `$can` inside templates.
-* @return object
-*/
+ * Returns the acl helper instance. Equivalent to using `$can` inside templates.
+ * @return object
+ */
 export const useAcl = () => {
   let acl: any = {};
   acl.user = computed(() => state.registeredUser).value;
